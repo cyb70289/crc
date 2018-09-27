@@ -125,29 +125,35 @@ static uint32_t crc32_lut4(const uint8_t *in, size_t size, uint32_t crc)
     return crc32_lut((const uint8_t *)in32, size, crc);
 }
 
-int main(void)
+int main(int argc, const char *argv[])
 {
     uint8_t in[1024*1024+3];
+    const int loops = 67;
     const size_t size = sizeof(in) / sizeof(in[0]);
     uint32_t c1 = 0, c2 = 0;
+    int bench = 0;
 
-    for (size_t i = 0; i < size; ++i)
+    if (argc > 1)
+        bench = 1;
+
+    for (int i = 0; i < size; ++i)
         in[i] = i+1;
 
-#if 1
-    for (int i = 0; i < 67; ++i)
-        c1 = crc32_lut4(in, size, c1);
-    printf("%x\n", c1);
-#endif
+    if (!bench) {
+        for (int i = 0; i < loops; ++i)
+            c1 = crc32_lut4(in, size, c1);
+        printf("%x\n", c1);
+    }
 
-#if 0
-    for (int i = 0; i < 67; ++i)
+    for (int i = 0; i < loops; ++i)
         c2 = crc32_hw(in, size, c2);
-    if (c2 == c1)
-        printf("OK\n");
-    else
-        printf("BAD: %x\n", c2);
-#endif
+
+    if (!bench) {
+        if (c2 == c1)
+            printf("OK\n");
+        else
+            printf("BAD: %x\n", c2);
+    }
 
     return 0;
 }
