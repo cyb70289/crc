@@ -5,17 +5,21 @@
 
 #if defined(__x86_64__)
 #include <x86intrin.h>
+#include "pmul.c"
 #define crc32c_u8(crc, in)  _mm_crc32_u8(crc, in)
 #define crc32c_u16(crc, in) _mm_crc32_u16(crc, in)
 #define crc32c_u32(crc, in) _mm_crc32_u32(crc, in)
 #define crc32c_u64(crc, in) _mm_crc32_u64(crc, in)
 #elif defined(__aarch64__)
 #include <arm_acle.h>
+#include <arm_neon.h>
 #define crc32c_u8(crc, in)  __crc32cb(crc, in)
 #define crc32c_u16(crc, in) __crc32ch(crc, in)
 #define crc32c_u32(crc, in) __crc32cw(crc, in)
 #define crc32c_u64(crc, in) __crc32cd(crc, in)
 #endif
+
+#include "fio.c"
 
 static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
 {
@@ -34,7 +38,6 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
         in += 4;
         size -= 4;
     }
-    // FIXME: do in three parallel loops
     while (size >= 8) {
         crc = crc32c_u64(crc, *(const uint64_t*)(in));
         in += 8;
@@ -146,7 +149,8 @@ int main(int argc, const char *argv[])
     }
 
     for (int i = 0; i < loops; ++i)
-        c2 = crc32_hw(in, size, c2);
+//        c2 = crc32_hw(in, size, c2);
+        c2 = fio_crc32c(in, size, c2);
 
     if (!bench) {
         if (c2 == c1)

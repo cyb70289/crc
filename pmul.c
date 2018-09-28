@@ -1,10 +1,7 @@
-#include <stdio.h>
-#include <inttypes.h>
-
 #if defined(__x86_64__)
-#include <x86intrin.h> 
+typedef uint64_t poly64_t;
 
-static uint64_t pmul(uint64_t p1, uint64_t p2)
+static uint64_t vmull_p64(uint64_t p1, uint64_t p2)
 {
     __m128i a = _mm_cvtsi64_si128(p1);
     __m128i b = _mm_cvtsi64_si128(p2);
@@ -13,21 +10,4 @@ static uint64_t pmul(uint64_t p1, uint64_t p2)
 
     return *(uint64_t*)&p;
 }
-
-#elif defined(__aarch64__)
-#include <arm_acle.h> 
-
-
 #endif
-
-static uint64_t pmul_naive(uint64_t p1, uint64_t p2)
-{
-    uint64_t p = 0;
-}
-
-int main(void)
-{
-    printf("0x%" PRIx64 "\n", pmul(11, 22));
-
-    return 0;
-}
