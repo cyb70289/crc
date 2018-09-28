@@ -6,4 +6,4 @@ CPPFLAGS += -O3 -march=native
 all: crc
 
 clean:
-	rm -f crc crc-gentbl
+	rm -f crc crc-gentbl crc-poly
