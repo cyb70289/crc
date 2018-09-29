@@ -38,6 +38,54 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
         in += 4;
         size -= 4;
     }
+
+#if 1
+    const uint64_t *in64 = (const uint64_t *)in;
+    while (size >= 1024) {
+        uint64_t t0, t1;
+		uint32_t crc0 = crc, crc1 = 0, crc2 = 0;
+
+        /*
+         * crc0: in64[ 0,  1, ...,  41]
+         * crc1: in64[42, 43, ...,  83]
+         * crc2: in64[84, 85, ..., 125]
+         */
+        for (int i = 0; i < 42; i += 3, in64 += 3) {
+            crc0 = crc32c_u64(crc0, *(in64));
+            crc1 = crc32c_u64(crc1, *(in64+42));
+            crc2 = crc32c_u64(crc2, *(in64+42*2));
+
+            crc0 = crc32c_u64(crc0, *(in64+1));
+            crc1 = crc32c_u64(crc1, *(in64+1+42));
+            crc2 = crc32c_u64(crc2, *(in64+1+42*2));
+
+            crc0 = crc32c_u64(crc0, *(in64+2));
+            crc1 = crc32c_u64(crc1, *(in64+2+42));
+            crc2 = crc32c_u64(crc2, *(in64+2+42*2));
+        }
+        in64 += 42*2;
+
+        /* x^(42*64*2) mod P = 0xe417f38a, x^(42*64) mod P = 0x8f158014 */
+
+        /* CRC32(crc0 * x^(42*64*2+32)) */
+        t0 = (uint64_t)vmull_p64(crc0, 0xe417f38a);
+        crc0 = crc32c_u64(0, t0);
+        /* CRC32(crc1 * x^(42*64+32)) */
+        t1 = (uint64_t)vmull_p64(crc1, 0x8f158014);
+        crc1 = crc32c_u64(0, t1);
+        /* (crc2 * x^32 + in64[-2]) mod P */
+        crc2 = crc32c_u64(crc2, *in64++);
+
+        crc = crc0 ^ crc1 ^ crc2;
+
+        /* last u64 */
+        crc = crc32c_u64(crc, *in64++);
+
+        size -= 1024;
+    }
+    in = (const uint8_t *)in64;
+#endif
+
     while (size >= 8) {
         crc = crc32c_u64(crc, *(const uint64_t*)(in));
         in += 8;
@@ -131,7 +179,7 @@ static uint32_t crc32_lut4(const uint8_t *in, size_t size, uint32_t crc)
 int main(int argc, const char *argv[])
 {
     uint8_t in[1024*1024+3];
-    const int loops = 67;
+    const int loops = 501;
     const size_t size = sizeof(in) / sizeof(in[0]);
     uint32_t c1 = 0, c2 = 0;
     int bench = 0;
@@ -149,8 +197,8 @@ int main(int argc, const char *argv[])
     }
 
     for (int i = 0; i < loops; ++i)
-//        c2 = crc32_hw(in, size, c2);
-        c2 = fio_crc32c(in, size, c2);
+        c2 = crc32_hw(in, size, c2);
+//        c2 = fio_crc32c(in, size, c2);
 
     if (!bench) {
         if (c2 == c1)
