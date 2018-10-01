@@ -50,18 +50,10 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
          * crc1: in64[42, 43, ...,  83]
          * crc2: in64[84, 85, ..., 125]
          */
-        for (int i = 0; i < 42; i += 3, in64 += 3) {
+        for (int i = 0; i < 42; i++, in64++) {
             crc0 = crc32c_u64(crc0, *(in64));
             crc1 = crc32c_u64(crc1, *(in64+42));
             crc2 = crc32c_u64(crc2, *(in64+42*2));
-
-            crc0 = crc32c_u64(crc0, *(in64+1));
-            crc1 = crc32c_u64(crc1, *(in64+1+42));
-            crc2 = crc32c_u64(crc2, *(in64+1+42*2));
-
-            crc0 = crc32c_u64(crc0, *(in64+2));
-            crc1 = crc32c_u64(crc1, *(in64+2+42));
-            crc2 = crc32c_u64(crc2, *(in64+2+42*2));
         }
         in64 += 42*2;
 
@@ -179,7 +171,7 @@ static uint32_t crc32_lut4(const uint8_t *in, size_t size, uint32_t crc)
 int main(int argc, const char *argv[])
 {
     uint8_t in[1024*1024+3];
-    const int loops = 501;
+    const int loops = 2019;
     const size_t size = sizeof(in) / sizeof(in[0]);
     uint32_t c1 = 0, c2 = 0;
     int bench = 0;
@@ -197,8 +189,11 @@ int main(int argc, const char *argv[])
     }
 
     for (int i = 0; i < loops; ++i)
+#if 1
         c2 = crc32_hw(in, size, c2);
-//        c2 = fio_crc32c(in, size, c2);
+#else
+        c2 = fio_crc32c(in, size, c2);
+#endif
 
     if (!bench) {
         if (c2 == c1)
