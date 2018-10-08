@@ -58,12 +58,12 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
         }
         in64 += 42*2;
 
-        /* x^(42*64*2) mod P = 0xe417f38a, x^(42*64) mod P = 0x8f158014 */
+        /* CRC32(x^(42*64*2)) = 0xe417f38a, CRC32(x^(42*64)) = 0x8f158014 */
 
-        /* CRC32(crc0 * x^(42*64*2+32)) */
+        /* CRC32(crc0 * CRC32(x^(42*64*2))) */
         t0 = (uint64_t)vmull_p64(crc0, 0xe417f38a);
         crc0 = crc32c_u64(0, t0);
-        /* CRC32(crc1 * x^(42*64+32)) */
+        /* CRC32(crc1 * CRC32(x^(42*64))) */
         t1 = (uint64_t)vmull_p64(crc1, 0x8f158014);
         crc1 = crc32c_u64(0, t1);
         /* (crc2 * x^32 + in64[-2]) mod P */

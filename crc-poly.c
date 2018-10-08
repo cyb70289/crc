@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-/* x^(42*64) mod P */
+/* CRC32(x^(42*64)) */
 static uint32_t poly1(void)
 {
     const uint32_t p = 0x82F63B78;
@@ -18,7 +18,7 @@ static uint32_t poly1(void)
     printf("%x\n", crc);
 }
 
-/* x^(42*64*2) mod P */
+/* CRC32(x^(42*64*2)) */
 static uint32_t poly2(void)
 {
     const uint32_t p = 0x82F63B78;
