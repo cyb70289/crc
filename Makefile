@@ -3,7 +3,10 @@ CPPFLAGS += -O3 -march=native
 
 .PHONY: all clean
 
-all: crc
+all: crc crc-opt
+
+crc-opt: crc.c
+	$(CC) $(CPPFLAGS) -DCRC32_OPT crc.c -o $@
 
 clean:
-	rm -f crc crc-gentbl crc-poly
+	rm -f crc crc-opt crc-gentbl crc-poly

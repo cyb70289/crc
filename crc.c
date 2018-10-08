@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <inttypes.h>
+#include <sys/time.h>
 
 #include "crctbl.c"
 
@@ -39,7 +40,7 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
         size -= 4;
     }
 
-#if 1
+#ifdef CRC32_OPT
     const uint64_t *in64 = (const uint64_t *)in;
     while (size >= 1024) {
         uint64_t t0, t1;
@@ -170,32 +171,43 @@ static uint32_t crc32_lut4(const uint8_t *in, size_t size, uint32_t crc)
 
 int main(int argc, const char *argv[])
 {
-    uint8_t in[1024*1024+3];
-    const int loops = 2019;
-    const size_t size = sizeof(in) / sizeof(in[0]);
+    const size_t size = 1024 * 1024 + 3;
+    const int loops = 20190;
+    uint8_t in[size];
     uint32_t c1 = 0, c2 = 0;
-    int bench = 0;
+    int check = 0;
+    struct timeval tv1, tv2;
 
     if (argc > 1)
-        bench = 1;
+        check = 1;
 
     for (int i = 0; i < size; ++i)
         in[i] = i+1;
 
-    if (!bench) {
+    if (check) {
         for (int i = 0; i < loops; ++i)
             c1 = crc32_lut4(in, size, c1);
         printf("%x\n", c1);
     }
 
+    gettimeofday(&tv1, 0);
     for (int i = 0; i < loops; ++i)
 #if 1
         c2 = crc32_hw(in, size, c2);
 #else
         c2 = fio_crc32c(in, size, c2);
 #endif
+    gettimeofday(&tv2, 0);
 
-    if (!bench) {
+    double time = tv2.tv_usec - tv1.tv_usec;
+    time = time / 1000000 + tv2.tv_sec - tv1.tv_sec;
+    double data = ((double)size * loops) / (1024*1024);
+
+    printf("time: %.4f s\n", time);
+    printf("data: %.0f MB\n", data);
+    printf("BW: %.2f MB/s\n", data / time);
+
+    if (check) {
         if (c2 == c1)
             printf("OK\n");
         else
