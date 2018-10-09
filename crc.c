@@ -20,7 +20,9 @@
 #define crc32c_u64(crc, in) __crc32cd(crc, in)
 #endif
 
-#include "fio.c"
+#ifdef CRC32_ZLIB
+#include <zlib.h>
+#endif
 
 static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
 {
@@ -192,10 +194,10 @@ int main(int argc, const char *argv[])
 
     gettimeofday(&tv1, 0);
     for (int i = 0; i < loops; ++i)
-#if 1
-        c2 = crc32_hw(in, size, c2);
+#ifdef CRC32_ZLIB
+        c2 = crc32(c2, in, size);
 #else
-        c2 = fio_crc32c(in, size, c2);
+        c2 = crc32_hw(in, size, c2);
 #endif
     gettimeofday(&tv2, 0);
 
@@ -203,6 +205,9 @@ int main(int argc, const char *argv[])
     time = time / 1000000 + tv2.tv_sec - tv1.tv_sec;
     double data = ((double)size * loops) / (1024*1024);
 
+#ifdef CRC32_ZLIB
+    printf("ZLIB\n");
+#endif
     printf("time: %.4f s\n", time);
     printf("data: %.0f MB\n", data);
     printf("BW: %.2f MB/s\n", data / time);
