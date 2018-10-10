@@ -6,11 +6,19 @@
 
 #if defined(__x86_64__)
 #include <x86intrin.h>
-#include "pmul.c"
 #define crc32c_u8(crc, in)  _mm_crc32_u8(crc, in)
 #define crc32c_u16(crc, in) _mm_crc32_u16(crc, in)
 #define crc32c_u32(crc, in) _mm_crc32_u32(crc, in)
 #define crc32c_u64(crc, in) _mm_crc32_u64(crc, in)
+static uint64_t vmull_p64(uint64_t p1, uint64_t p2)
+{
+    __m128i a = _mm_cvtsi64_si128(p1);
+    __m128i b = _mm_cvtsi64_si128(p2);
+
+    __m128i p = _mm_clmulepi64_si128(a, b, 0);
+
+    return *(uint64_t*)&p;
+}
 #elif defined(__aarch64__)
 #include <arm_acle.h>
 #include <arm_neon.h>
@@ -109,16 +117,10 @@ static uint32_t crc32_naive_u8(uint8_t in)
     const uint32_t p = 0x82F63B78;
 
     for (int i = 0; i < 8; i++) {
-#if 0
-        int bit0 = -(crc & 1);
-        crc >>= 1;
-        crc ^= (bit0 & p);
-#else
         int bit0 = crc & 1;
         crc >>= 1;
         if (bit0)
             crc ^= p;
-#endif
     }
 
     return crc;
@@ -174,14 +176,16 @@ static uint32_t crc32_lut4(const uint8_t *in, size_t size, uint32_t crc)
 int main(int argc, const char *argv[])
 {
     const size_t size = 1024 * 1024 + 3;
-    const int loops = 20190;
+    int loops = 20190;
     uint8_t in[size];
     uint32_t c1 = 0, c2 = 0;
     int check = 0;
     struct timeval tv1, tv2;
 
-    if (argc > 1)
+    if (argc > 1) {
         check = 1;
+        loops = 3;
+    }
 
     for (int i = 0; i < size; ++i)
         in[i] = i+1;

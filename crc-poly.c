@@ -1,44 +1,37 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <assert.h>
 
-/* CRC32(x^(42*64)) */
-static uint32_t poly1(void)
+const uint32_t P = 0x82F63B78;
+
+/* x^n mod P */
+static uint32_t poly(int n)
 {
-    const uint32_t p = 0x82F63B78;
     uint32_t crc = 1;
-    int zeros = 42*64;
 
-    while (zeros--) {
+    printf("x^%d mod P = ", n);
+    assert(n > 32);
+    n -= 32;
+
+    while (n--) {
         int bit0 = crc & 1;
         crc >>= 1;
         if (bit0)
-            crc ^= p;
+            crc ^= P;
     }
 
     printf("%x\n", crc);
 }
 
-/* CRC32(x^(42*64*2)) */
-static uint32_t poly2(void)
+static uint32_t crc32(int n)
 {
-    const uint32_t p = 0x82F63B78;
-    uint32_t crc = 1;
-    int zeros = 42*64*2;
-
-    while (zeros--) {
-        int bit0 = crc & 1;
-        crc >>= 1;
-        if (bit0)
-            crc ^= p;
-    }
-
-    printf("%x\n", crc);
+    poly(n+32);
 }
 
 int main(void)
 {
-    poly1();
-    poly2();
+    crc32(42*64);
+    crc32(42*64*2);
 
     return 0;
 }
