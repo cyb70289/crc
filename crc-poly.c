@@ -10,8 +10,8 @@ static uint32_t poly(int n)
     uint32_t crc = 1;
 
     printf("x^%d mod P = ", n);
-    assert(n > 32);
-    n -= 32;
+    assert(n > 31);
+    n -= 31;
 
     while (n--) {
         int bit0 = crc & 1;
@@ -30,8 +30,8 @@ static uint32_t crc32(int n)
 
 int main(void)
 {
-    crc32(42*64);
-    crc32(42*64*2);
+    crc32(42*64-1);
+    crc32(42*64*2-1);
 
     return 0;
 }

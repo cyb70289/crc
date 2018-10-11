@@ -68,7 +68,7 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
         }
         in64 += 42*2;
 
-        /* CRC32(x^(42*64*2)) = 0xe417f38a, CRC32(x^(42*64)) = 0x8f158014 */
+        /* CRC32(x^(42*64*2-1)) = 0xe417f38a, CRC32(x^(42*64-1)) = 0x8f158014 */
 
         /* CRC32(crc0 * CRC32(x^(42*64*2))) */
         t0 = (uint64_t)vmull_p64(crc0, 0xe417f38a);
