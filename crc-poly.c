@@ -23,6 +23,7 @@ static uint32_t poly(int n)
     printf("%x\n", crc);
 }
 
+/* CRC32(x^n) */
 static uint32_t crc32(int n)
 {
     poly(n+32);
@@ -32,6 +33,9 @@ int main(void)
 {
     crc32(42*64-1);
     crc32(42*64*2-1);
+    poly(96+128-32-1);
+    poly(64+128-32-1);
+    poly(128-32-1);
 
     return 0;
 }
