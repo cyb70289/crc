@@ -13,11 +13,8 @@
 #define crc32c_u64(crc, in) _mm_crc32_u64(crc, in)
 static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 {
-    __m128i a = _mm_cvtsi64_si128(p1);
-    __m128i b = _mm_cvtsi64_si128(p2);
-
-    __m128i p = _mm_clmulepi64_si128(a, b, 0);
-
+    __m128i p = _mm_set_epi64x(p1, p2);
+    p = _mm_clmulepi64_si128(p, p, 0x01);
     return *(uint64_t*)&p;
 }
 #elif defined(__aarch64__)
