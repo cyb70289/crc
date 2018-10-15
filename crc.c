@@ -177,6 +177,10 @@ static uint32_t crc32_lut4(const uint8_t *in, size_t size, uint32_t crc)
 
 static uint32_t crc32_fold(const uint8_t *in, size_t size, uint32_t crc)
 {
+#ifdef __aarch64__
+    printf("Not implemented yet!");
+    return 0;
+#else
     if (((uintptr_t)(in) & 1) && size >= 1) {
         crc = crc32c_u8(crc, *in);
         ++in;
@@ -235,8 +239,10 @@ static uint32_t crc32_fold(const uint8_t *in, size_t size, uint32_t crc)
     crc = crc32_hw(in, residue, crc);
 
     return crc;
+#endif
 }
 
+#if 0
 static void print128(const char *s, const __m128i *v128)
 {
     const uint64_t *v64 = (const uint64_t *)v128;
@@ -288,6 +294,7 @@ static void test_pmul(void)
 
     printf("crc = %x\n", crc);
 }
+#endif
 
 int main(int argc, const char *argv[])
 {
