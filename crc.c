@@ -37,18 +37,22 @@ static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 #ifdef SW_VMULL
 static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 {
-    uint64_t r1 = 0, r2 = 0, p1l = p1;
-    uint32_t p2h = p2 >> 16;
+    uint64_t r0 = 0, r1 = 0, r2 = 0, r3 = 0, p1l = p1;
+    uint8_t p2_0 = p2, p2_1 = p2 >> 8, p2_2 = p2 >> 16, p2_3 = p2 >> 24;
 
-    for (int i = 0; i < 16; i++) {
-        r1 ^= -(p2 & 1UL) & p1l;
-        r2 ^= -(p2h & 1UL) & p1l;
+    for (int i = 0; i < 8; i++) {
+        r0 ^= -(p2_0 & 1UL) & p1l;
+        r1 ^= -(p2_1 & 1UL) & p1l;
+        r2 ^= -(p2_2 & 1UL) & p1l;
+        r3 ^= -(p2_3 & 1UL) & p1l;
         p1l <<= 1;
-        p2 >>= 1;
-        p2h >>= 1;
+        p2_0 >>= 1;
+        p2_1 >>= 1;
+        p2_2 >>= 1;
+        p2_3 >>= 1;
     }
 
-    return r1 ^ (r2 << 16);
+    return r0 ^ (r1 << 8) ^ (r2 << 16) ^ (r3 << 24);
 }
 #endif
 
