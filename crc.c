@@ -11,12 +11,14 @@
 #define crc32c_u16(crc, in) _mm_crc32_u16(crc, in)
 #define crc32c_u32(crc, in) _mm_crc32_u32(crc, in)
 #define crc32c_u64(crc, in) _mm_crc32_u64(crc, in)
+#ifndef SW_VMULL
 static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 {
     __m128i p = _mm_set_epi64x(p1, p2);
     p = _mm_clmulepi64_si128(p, p, 0x01);
     return *(uint64_t*)&p;
 }
+#endif
 #elif defined(__aarch64__)
 #include <arm_acle.h>
 #include <arm_neon.h>
@@ -24,9 +26,29 @@ static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 #define crc32c_u16(crc, in) __crc32ch(crc, in)
 #define crc32c_u32(crc, in) __crc32cw(crc, in)
 #define crc32c_u64(crc, in) __crc32cd(crc, in)
+#ifndef SW_VMULL
 static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 {
     return vmull_p64(p1, p2);
+}
+#endif
+#endif
+
+#ifdef SW_VMULL
+static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
+{
+    uint64_t r1 = 0, r2 = 0, p1l = p1;
+    uint32_t p2h = p2 >> 16;
+
+    for (int i = 0; i < 16; i++) {
+        r1 ^= -(p2 & 1UL) & p1l;
+        r2 ^= -(p2h & 1UL) & p1l;
+        p1l <<= 1;
+        p2 >>= 1;
+        p2h >>= 1;
+    }
+
+    return r1 ^ (r2 << 16);
 }
 #endif
 
