@@ -81,7 +81,6 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
 #ifdef CRC32_OPT
     const uint64_t *in64 = (const uint64_t *)in;
     while (size >= 1024) {
-        uint64_t t0, t1;
 		uint32_t crc0 = crc, crc1 = 0, crc2 = 0;
 
         /*
@@ -96,20 +95,15 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
         }
         in64 += 42*2;
 
-        /* CRC32(x^(42*64*2-1)) = 0xe417f38a, CRC32(x^(42*64-1)) = 0x8f158014 */
-
-        /* CRC32(crc0 * CRC32(x^(42*64*2))) */
-        t0 = vmull_p32(crc0, 0xe417f38a);
-        crc0 = crc32c_u64(0, t0);
-        /* CRC32(crc1 * CRC32(x^(42*64))) */
-        t1 = vmull_p32(crc1, 0x8f158014);
-        crc1 = crc32c_u64(0, t1);
-        /* (crc2 * x^32 + in64[-2]) mod P */
-        crc2 = crc32c_u64(crc2, *in64++);
+        /* CRC32(crc0 * (x^(42*64*2-32) mod P)) */
+        crc0 = crc32c_u64(0, vmull_p32(crc0, 0xcec3662e));
+        /* CRC32(crc1 * (x^(42*64-32) mod P)) */
+        crc1 = crc32c_u64(0, vmull_p32(crc1, 0xa60ce07b));
 
         crc = crc0 ^ crc1 ^ crc2;
 
-        /* last u64 */
+        /* last two u64 */
+        crc = crc32c_u64(crc, *in64++);
         crc = crc32c_u64(crc, *in64++);
 
         size -= 1024;

@@ -31,8 +31,8 @@ static uint32_t crc32(int n)
 
 int main(void)
 {
-    crc32(42*64-1);
-    crc32(42*64*2-1);
+    poly(42*64-32-1);
+    poly(42*64*2-32-1);
     poly(96+128-32-1);
     poly(64+128-32-1);
     poly(128-32-1);
