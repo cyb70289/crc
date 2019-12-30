@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <sys/time.h>
 #include <assert.h>
@@ -41,6 +42,17 @@ static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
  */
 #define USE_PMULL   1
 
+/* Test logs
+ * baseline
+ * - blk_cnt = 8, blk_sz = 4096
+ * positive:
+ * - blk_cnt = 10, blk_sz = 10*512
+ * negative:
+ * - blk_cnt = 10, blk_sz = 10*256
+ * - blk_cnt = 6, blk_sz = 6*512
+ * - move pmull to middle buf4_ptr: no chnages
+ */
+
 static const int blk_sz = 4096;
 static const int blk_cnt = 8;
 
@@ -48,14 +60,20 @@ static uint32_t pmull_crc_poc(const uint8_t *in, size_t size, uint32_t crc)
 {
     static const int blk_loops = blk_sz / blk_cnt / 16;
 
-    const uint32_t k0 = 0xf20c0dfe;     /* x^(64+128-32-1) mod P */
-    const uint32_t k1 = 0x493c7d27;     /* x^(128-32-1) mod P */
-    __m128i vk = _mm_set_epi64x(k1, k0);
+#ifdef __aarch64__
+    uint64x2_t vk =  { 0x87654321, 0x12345678 };
+#else
+    __m128i vk = _mm_set_epi64x(0x12345678, 0x87654321);
+#endif
 
     while (size >= blk_sz) {
         uint32_t crc1 = crc, crc2 = 0, crc3 = 0, crc4 = 0;
         uint32_t crc5 = 0,   crc6 = 0, crc7 = 0, crc8 = 0;
+#ifdef __aarch64__
+        uint64x2_t h, l, next = { 0, 0 };
+#else
         __m128i h, l, next = _mm_setzero_si128();
+#endif
 
         const int ptr64_gap = blk_sz / blk_cnt / 8;
 
@@ -91,13 +109,26 @@ static uint32_t pmull_crc_poc(const uint8_t *in, size_t size, uint32_t crc)
             crc7 = crc32c_u64(crc7, *buf7_ptr++);
 
 #if USE_PMULL
+#ifdef __aarch64__
+	        h = (uint64x2_t)vmull_p64(
+                    (poly64_t)vgetq_lane_u64(next, 1),
+                    (poly64_t)vgetq_lane_u64(vk, 1));
+	        l = (uint64x2_t)vmull_p64(
+                    (poly64_t)vgetq_lane_u64(next, 0),
+                    (poly64_t)vgetq_lane_u64(vk, 0));
+            next = vld1q_u64(buf8_ptr);
+	        next = veorq_u64(next, h);
+            next = veorq_u64(next, l);
+            buf8_ptr += 2;
+#else
             h = _mm_clmulepi64_si128(vk, next, 0x00);
             l = _mm_clmulepi64_si128(vk, next, 0x11);
             next = _mm_load_si128((__m128i *)buf8_ptr);
             next = _mm_xor_si128(next, h);
             next = _mm_xor_si128(next, l);
             buf8_ptr += 2;
-#else
+#endif
+#else   /* USE_PMULL */
             crc8 = crc32c_u64(crc8, *buf8_ptr++);
             crc8 = crc32c_u64(crc8, *buf8_ptr++);
 #endif
@@ -105,7 +136,11 @@ static uint32_t pmull_crc_poc(const uint8_t *in, size_t size, uint32_t crc)
 
 #if USE_PMULL
         uint64_t data[2];
+#ifdef __aarch64__
+        vst1q_u64(data, next);
+#else
         _mm_store_si128((__m128i *)data, next);
+#endif
         crc8 = crc32c_u64(crc8, data[0]);
         crc8 = crc32c_u64(crc8, data[1]);
 #endif
@@ -193,10 +228,11 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
 
 int main(void)
 {
-    const size_t size = 1024 * 1024 + 3;
-    const int loops = 20190;
-    const double data_mb = ((double)size * loops) / (1024*1024);
-    uint8_t in[size];
+    const size_t size = 64*1024*1024;
+
+    const double data_mb = 10000;    /* Test 10G data */
+    const int loops = data_mb*1024*1024 / size;
+    uint8_t *in;
     uint32_t c1 = 0, c2 = 0;
     struct timeval tv1, tv2;
     double time;
@@ -204,13 +240,13 @@ int main(void)
     assert(blk_sz % blk_cnt == 0);
     assert((blk_sz / blk_cnt) % 16 == 0);
 
-    for (int i = 0; i < size; ++i) {
-        in[i] = i+1;
+    if (posix_memalign((void **)&in, 1024, size)) {
+        printf("alloc failed\n");
+        return 1;
     }
 
-    /* warm up */
-    for (int i = 0; i < loops; ++i) {
-        c1 = crc32_hw(in, size, c1);
+    for (int i = 0; i < size; ++i) {
+        in[i] = i+1;
     }
 
     /***************************************************************/
