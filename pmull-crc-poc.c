@@ -247,6 +247,11 @@ int main(void)
     /***************************************************************/
     printf("3 parallel crc hw...\n");
 
+    /* warm up */
+    for (int i = 0; i < loops; ++i) {
+        crc32_hw(in, size, 0);
+    }
+
     gettimeofday(&tv1, 0);
     for (int i = 0; i < loops; ++i) {
         c1 = crc32_hw(in, size, c1);
@@ -259,6 +264,11 @@ int main(void)
 
     /***************************************************************/
     printf("pmull + crc hw...\n");
+
+    /* warm up */
+    for (int i = 0; i < loops; ++i) {
+        pmull_crc_poc(in, size, 0);
+    }
 
     gettimeofday(&tv1, 0);
     for (int i = 0; i < loops; ++i) {
