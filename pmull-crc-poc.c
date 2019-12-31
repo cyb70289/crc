@@ -4,22 +4,18 @@
 #include <sys/time.h>
 #include <assert.h>
 
-#include "crctbl.c"
-
 #if defined(__x86_64__)
 #include <x86intrin.h>
 #define crc32c_u8(crc, in)  _mm_crc32_u8(crc, in)
 #define crc32c_u16(crc, in) _mm_crc32_u16(crc, in)
 #define crc32c_u32(crc, in) _mm_crc32_u32(crc, in)
 #define crc32c_u64(crc, in) _mm_crc32_u64(crc, in)
-#ifndef SW_VMULL
 static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 {
     __m128i p = _mm_set_epi64x(p1, p2);
     p = _mm_clmulepi64_si128(p, p, 0x01);
     return *(uint64_t*)&p;
 }
-#endif
 #elif defined(__aarch64__)
 #include <arm_acle.h>
 #include <arm_neon.h>
@@ -27,12 +23,10 @@ static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 #define crc32c_u16(crc, in) __crc32ch(crc, in)
 #define crc32c_u32(crc, in) __crc32cw(crc, in)
 #define crc32c_u64(crc, in) __crc32cd(crc, in)
-#ifndef SW_VMULL
 static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
 {
     return vmull_p64(p1, p2);
 }
-#endif
 #endif
 
 /*
@@ -42,7 +36,8 @@ static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
  */
 #define USE_PMULL   1
 
-/* Test logs
+/* Test logs (more block size, more block count --> better performance)
+ *
  * baseline
  * - blk_cnt = 8, blk_sz = 4096
  * positive:
@@ -50,7 +45,7 @@ static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
  * negative:
  * - blk_cnt = 10, blk_sz = 10*256
  * - blk_cnt = 6, blk_sz = 6*512
- * - move pmull to middle buf4_ptr: no chnages
+ * - move pmull to middle buf4_ptr: no changes
  */
 
 static const int blk_sz = 4096;
@@ -128,7 +123,7 @@ static uint32_t pmull_crc_poc(const uint8_t *in, size_t size, uint32_t crc)
             next = _mm_xor_si128(next, l);
             buf8_ptr += 2;
 #endif
-#else   /* USE_PMULL */
+#else   /* USE_PMULL = 0 */
             crc8 = crc32c_u64(crc8, *buf8_ptr++);
             crc8 = crc32c_u64(crc8, *buf8_ptr++);
 #endif
