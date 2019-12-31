@@ -36,20 +36,8 @@ static uint64_t vmull_p32(uint32_t p1, uint32_t p2)
  */
 #define USE_PMULL   1
 
-/* Test logs (more block size, more block count --> better performance)
- *
- * baseline
- * - blk_cnt = 8, blk_sz = 4096
- * positive:
- * - blk_cnt = 10, blk_sz = 10*512
- * negative:
- * - blk_cnt = 10, blk_sz = 10*256
- * - blk_cnt = 6, blk_sz = 6*512
- * - move pmull to middle buf4_ptr: no changes
- */
-
-static const int blk_sz = 4096;
-static const int blk_cnt = 8;
+static const int blk_sz = 3*336;
+static const int blk_cnt = 3;
 
 static uint32_t pmull_crc_poc(const uint8_t *in, size_t size, uint32_t crc)
 {
@@ -62,8 +50,7 @@ static uint32_t pmull_crc_poc(const uint8_t *in, size_t size, uint32_t crc)
 #endif
 
     while (size >= blk_sz) {
-        uint32_t crc1 = crc, crc2 = 0, crc3 = 0, crc4 = 0;
-        uint32_t crc5 = 0,   crc6 = 0, crc7 = 0, crc8 = 0;
+        uint32_t crc1 = crc, crc2 = 0, crc3 = 0;
 #ifdef __aarch64__
         uint64x2_t h, l, next = { 0, 0 };
 #else
@@ -75,57 +62,37 @@ static uint32_t pmull_crc_poc(const uint8_t *in, size_t size, uint32_t crc)
         const uint64_t *buf1_ptr = (const uint64_t *)in;
         const uint64_t *buf2_ptr = buf1_ptr + ptr64_gap;
         const uint64_t *buf3_ptr = buf2_ptr + ptr64_gap;
-        const uint64_t *buf4_ptr = buf3_ptr + ptr64_gap;
-        const uint64_t *buf5_ptr = buf4_ptr + ptr64_gap;
-        const uint64_t *buf6_ptr = buf5_ptr + ptr64_gap;
-        const uint64_t *buf7_ptr = buf6_ptr + ptr64_gap;
-        const uint64_t *buf8_ptr = buf7_ptr + ptr64_gap;
 
         for (int i = 0; i < blk_loops; ++i) {
             crc1 = crc32c_u64(crc1, *buf1_ptr++);
+            crc2 = crc32c_u64(crc2, *buf2_ptr++);
+
             crc1 = crc32c_u64(crc1, *buf1_ptr++);
-
             crc2 = crc32c_u64(crc2, *buf2_ptr++);
-            crc2 = crc32c_u64(crc2, *buf2_ptr++);
-
-            crc3 = crc32c_u64(crc3, *buf3_ptr++);
-            crc3 = crc32c_u64(crc3, *buf3_ptr++);
-
-            crc4 = crc32c_u64(crc4, *buf4_ptr++);
-            crc4 = crc32c_u64(crc4, *buf4_ptr++);
-
-            crc5 = crc32c_u64(crc5, *buf5_ptr++);
-            crc5 = crc32c_u64(crc5, *buf5_ptr++);
-
-            crc6 = crc32c_u64(crc6, *buf6_ptr++);
-            crc6 = crc32c_u64(crc6, *buf6_ptr++);
-
-            crc7 = crc32c_u64(crc7, *buf7_ptr++);
-            crc7 = crc32c_u64(crc7, *buf7_ptr++);
 
 #if USE_PMULL
 #ifdef __aarch64__
-	        h = (uint64x2_t)vmull_p64(
+            h = (uint64x2_t)vmull_p64(
                     (poly64_t)vgetq_lane_u64(next, 1),
                     (poly64_t)vgetq_lane_u64(vk, 1));
-	        l = (uint64x2_t)vmull_p64(
+            l = (uint64x2_t)vmull_p64(
                     (poly64_t)vgetq_lane_u64(next, 0),
                     (poly64_t)vgetq_lane_u64(vk, 0));
-            next = vld1q_u64(buf8_ptr);
-	        next = veorq_u64(next, h);
+            next = vld1q_u64(buf3_ptr);
+            next = veorq_u64(next, h);
             next = veorq_u64(next, l);
-            buf8_ptr += 2;
+            buf3_ptr += 2;
 #else
             h = _mm_clmulepi64_si128(vk, next, 0x00);
             l = _mm_clmulepi64_si128(vk, next, 0x11);
-            next = _mm_load_si128((__m128i *)buf8_ptr);
+            next = _mm_load_si128((__m128i *)buf3_ptr);
             next = _mm_xor_si128(next, h);
             next = _mm_xor_si128(next, l);
-            buf8_ptr += 2;
+            buf3_ptr += 2;
 #endif
 #else   /* USE_PMULL = 0 */
-            crc8 = crc32c_u64(crc8, *buf8_ptr++);
-            crc8 = crc32c_u64(crc8, *buf8_ptr++);
+            crc3 = crc32c_u64(crc3, *buf3_ptr++);
+            crc3 = crc32c_u64(crc3, *buf3_ptr++);
 #endif
         }
 
@@ -136,19 +103,14 @@ static uint32_t pmull_crc_poc(const uint8_t *in, size_t size, uint32_t crc)
 #else
         _mm_store_si128((__m128i *)data, next);
 #endif
-        crc8 = crc32c_u64(crc8, data[0]);
-        crc8 = crc32c_u64(crc8, data[1]);
+        crc3 = crc32c_u64(0, data[0]);
+        crc3 = crc32c_u64(crc3, data[1]);
 #endif
 
         crc1 = crc32c_u64(0, vmull_p32(crc1, 0x11111111));
         crc2 = crc32c_u64(0, vmull_p32(crc2, 0x22222222));
-        crc3 = crc32c_u64(0, vmull_p32(crc3, 0x33333333));
-        crc4 = crc32c_u64(0, vmull_p32(crc4, 0x44444444));
-        crc5 = crc32c_u64(0, vmull_p32(crc5, 0x55555555));
-        crc6 = crc32c_u64(0, vmull_p32(crc6, 0x66666666));
-        crc7 = crc32c_u64(0, vmull_p32(crc7, 0x77777777));
 
-        crc = crc1 ^ crc2 ^ crc3 ^ crc4 ^ crc5 ^ crc6 ^ crc7 ^ crc8;
+        crc = crc1 ^ crc2 ^ crc3;
 
         in += blk_sz;
         size -= blk_sz;
@@ -177,7 +139,7 @@ static uint32_t crc32_hw(const uint8_t* in, size_t size, uint32_t crc)
 
     const uint64_t *in64 = (const uint64_t *)in;
     while (size >= 1024) {
-		uint32_t crc0 = crc, crc1 = 0, crc2 = 0;
+        uint32_t crc0 = crc, crc1 = 0, crc2 = 0;
 
         for (int i = 0; i < 42; i++, in64++) {
             crc0 = crc32c_u64(crc0, *(in64));

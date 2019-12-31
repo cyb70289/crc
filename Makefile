@@ -1,5 +1,5 @@
 CC = gcc
-CPPFLAGS += -O3 -march=native
+CPPFLAGS += -O3 -march=armv8-a+crc+crypto
 
 .PHONY: all clean
 
